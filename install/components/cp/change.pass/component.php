@@ -46,9 +46,6 @@ $data = $_POST;
 
             if ($id_user['ID'] && $email != '') {
 
-                $rsSites = CSite::GetList($by = "sort", $order = "desc", Array("ACTIVE" => "Y"));
-                $siteID = $rsSites->arResult[0]['LID'];
-
                 $arGroups = CUser::GetUserGroup($id_user['ID']);
                 $adminGroup = 1;
 
@@ -77,6 +74,9 @@ $data = $_POST;
                 if ($strError != ''){
                     echo $strError;
                 } else {
+                    $rsSites = CSite::GetList($by = "sort", $order = "desc", Array("ACTIVE" => "Y"));
+                    $siteID = $rsSites->arResult[0]['LID'];
+
                     $arFields = array(
                         "MESSAGE" => GetMessage("CP_MODULE_EVENT_NEW_MESSAGE") . $new_pass,
                         "EMAIL_TO" => $email
