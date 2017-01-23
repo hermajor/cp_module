@@ -1,13 +1,14 @@
 <? if(!defined("B_PROLOG_INCLUDED") || B_PROLOG_INCLUDED!==true)die();
 
-$rsSites = CSite::GetList($by="sort", $order="desc", Array("ACTIVE" => "Y"));
-$siteID = $rsSites->arResult[0]['LID'];
+$et = new CEventType;
+$rsET = $et->GetList(Array("TYPE_ID" => "CP_MODULE_PASSWORD_CHANGE"));
 
-$rsET = CEventType::GetList(Array("TYPE_ID" => "CP_MODULE_PASSWORD_CHANGE"));
     if (!$arET = $rsET->Fetch())
     {
 
-        $et = new CEventType;
+        $rsSites = CSite::GetList($by="sort", $order="desc", Array("ACTIVE" => "Y"));
+        $siteID = $rsSites->arResult[0]['LID'];
+
         $eventID = $et->Add(array(
             "LID" => $siteID,
             "EVENT_NAME" => "CP_MODULE_PASSWORD_CHANGE",
@@ -36,56 +37,67 @@ $rsET = CEventType::GetList(Array("TYPE_ID" => "CP_MODULE_PASSWORD_CHANGE"));
 
 $data = $_POST;
     if (isset($data['button'])) {
-        $email = $data['email'];
-    
-        $rsUsers = CUser::GetList($by = "", $order = "", array('=EMAIL' => $email));
-        $id_user = $rsUsers->result->fetch_assoc();
-    
-        if($id_user['ID'] && $email != '') {
+        $email = trim(htmlspecialchars($data['email']));
 
-            $arGroups = CUser::GetUserGroup($id_user['ID']);
-            $adminGroup = 1;
+        if (filter_var($email, FILTER_VALIDATE_EMAIL)) {
 
-            $key = array_search($adminGroup, $arGroups);
+            $rsUsers = CUser::GetList($by = "", $order = "", array('=EMAIL' => $email));
+            $id_user = $rsUsers->result->fetch_assoc();
 
-            $chars = array(
-                'abcdefghijklnmopqrstuvwxyz',
-                'ABCDEFGHIJKLNMOPQRSTUVWXYZ',
-                '0123456789',
-            );
-            if (is_numeric($key)) {
-                $chars[] = ",.<>/?;:'\"[]{}\|`~!@#\$%^&*()-_+=";
+            if ($id_user['ID'] && $email != '') {
+
+                $rsSites = CSite::GetList($by = "sort", $order = "desc", Array("ACTIVE" => "Y"));
+                $siteID = $rsSites->arResult[0]['LID'];
+
+                $arGroups = CUser::GetUserGroup($id_user['ID']);
+                $adminGroup = 1;
+
+                $key = array_search($adminGroup, $arGroups);
+
+                $chars = array(
+                    'abcdefghijklnmopqrstuvwxyz',
+                    'ABCDEFGHIJKLNMOPQRSTUVWXYZ',
+                    '0123456789',
+                );
+                if (is_numeric($key)) {
+                    $chars[] = ",.<>/?;:'\"[]{}\|`~!@#\$%^&*()-_+=";
+                }
+
+                $length = rand(7, 10);
+                $new_pass = randString($length, $chars);
+
+                $user = new CUser;
+                $fields = Array(
+                    "PASSWORD" => $new_pass,
+                    "CONFIRM_PASSWORD" => $new_pass,
+                );
+                $user->Update($id_user['ID'], $fields);
+                $strError .= $user->LAST_ERROR;
+
+                if ($strError != ''){
+                    echo $strError;
+                } else {
+                    $arFields = array(
+                        "MESSAGE" => GetMessage("CP_MODULE_EVENT_NEW_MESSAGE") . $new_pass,
+                        "EMAIL_TO" => $email
+                    );
+                    CEvent::Send("CP_MODULE_PASSWORD_CHANGE", $siteID, $arFields);
+
+                    echo GetMessage("CP_MODULE_OK");
+                }
+
+            } else {
+                echo GetMessage("CP_MODULE_EMAIL_NOT_FOUND");
+                $this->IncludeComponentTemplate();
             }
 
-            $length = rand(7, 10);
-            $new_pass = randString($length, $chars);
-    
-            $user = new CUser;
-            $fields = Array(
-                "PASSWORD" => $new_pass,
-                "CONFIRM_PASSWORD" => $new_pass,
-            );
-            $user->Update($id_user['ID'], $fields);
-            $strError .= $user->LAST_ERROR;
-
-            $arFields = array(
-                "MESSAGE" => GetMessage("CP_MODULE_EVENT_NEW_MESSAGE").$new_pass,
-                "EMAIL_TO" => $email
-            );
-            CEvent::Send("CP_MODULE_PASSWORD_CHANGE", $siteID, $arFields);
-
-            $mess = GetMessage("CP_MODULE_OK");
-            echo $mess;
-          
-        } else {
-            $mess = GetMessage("CP_MODULE_EMAIL_NOT_FOUND");
-            echo $mess;
+        }else{
+            echo "Вы пытаетесь ввести некорректный e-mail адрес или пустую строку";
             $this->IncludeComponentTemplate();
         }
     
     }else{
-        $mess = GetMessage("CP_MODULE_INFO");
-        echo $mess;
+        echo GetMessage("CP_MODULE_INFO");
         $this->IncludeComponentTemplate();
 
     }
